@@ -1,0 +1,5 @@
+nyse = LOAD 'nyse' AS (date:datetime,symbol:chararray, open:float, close:float,low:float, high:float, volume:int);
+nyse_2016 = FILTER nyse BY GetYear(date) == 2016;
+nyse_2016_grouped = GROUP nyse_2016 BY symbol;
+nyse_final = FOREACH nyse_2016_grouped GENERATE group as stock_symbol,COUNT(nyse_2016),AVG(nyse_2016.open),AVG(nyse_2016.close),MIN(nyse_2016.low),MAX(nyse_2016.high),AVG(nyse_2016.volume);
+STORE nyse_final INTO 'ex7_nyse_final'; 
