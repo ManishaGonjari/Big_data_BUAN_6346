@@ -1,0 +1,43 @@
+
+-- Load Data
+flights = load '/data/flights.csv' using PigStorage(',') as (YEAR:int,MONTH:int,DAY:int,DAY_OF_WEEK:int,AIRLINE:chararray,FLIGHT_NUMBER:chararray,TAIL_NUMBER:chararray,ORIGIN_AIRPORT:chararray,DESTINATION_AIRPORT:chararray,SCHEDULED_DEPARTURE:int,DEPARTURE_TIME:int,TAXI_OUT:int,WHEELS_OFF:int,SCHEDULED_TIME:int,ELAPSED_TIME:int,AIR_TIME:int,DISTANCE:int,WHEELS_ON:int,TAXI_IN:int,SCHEDULED_ARRIVAL:int,ARRIVAL_TIME:int,DIVERTED:chararray,CANCELLED:chararray,CANCELLATION_REASON:chararray,AIR_SYSTEM_DELAY:int,SECURITY_DELAY:int,AIRLINE_DELAY:int,LATE_AIRCRAFT_DELAY:int,WEATHER_DELAY:int);
+airports = load '/data/airports.csv' using PigStorage(',') as (IATA_CODE:chararray,AIRPORT:chararray,CITY:chararray,STATE:chararray,COUNTRY:chararray,LATITUDE:chararray,LONGITUDE:chararray);
+
+--Filter airports to those only in Texas
+airports_filtered = filter airports by STATE == 'TX';
+
+--calculate flight departure delays
+flight_with_delay = foreach flights generate YEAR,MONTH,DAY,DAY_OF_WEEK,AIRLINE,FLIGHT_NUMBER,TAIL_NUMBER,ORIGIN_AIRPORT, DESTINATION_AIRPORT,SCHEDULED_DEPARTURE, DEPARTURE_TIME, TAXI_OUT,WHEELS_OFF,SCHEDULED_TIME,ELAPSED_TIME,AIR_TIME,DISTANCE,WHEELS_ON,TAXI_IN,SCHEDULED_ARRIVAL,ARRIVAL_TIME, DIVERTED,CANCELLED,CANCELLATION_REASON,AIR_SYSTEM_DELAY,SECURITY_DELAY,AIRLINE_DELAY,LATE_AIRCRAFT_DELAY,WEATHER_DELAY,DEPARTURE_TIME - SCHEDULED_DEPARTURE AS DEPARTURE_DELAY,ARRIVAL_TIME - SCHEDULED_ARRIVAL AS ARRIVAL_DELAY;
+
+--filter out nulls in delay time
+--GetYear() function to get year from date and substr function to get substring 
+flight_with_delay_no_null = filter flight_with_delay by DEPARTURE_DELAY is not null;
+
+
+
+--summary of amount of delayed flights over a certain amount of time by month, departure airport, and airline
+flight_airport_departure = group flight_with_delay_no_null by (YEAR, MONTH, ORIGIN_AIRPORT, AIRLINE);
+
+--Calculate average departure delay, count the number of delays over 20 minutes, calculate max and min
+summary_data = foreach flight_airport_departure {	  
+		average_delay = AVG(flight_with_delay_no_null.DEPARTURE_DELAY);
+		limited = filter flight_with_delay_no_null by DEPARTURE_DELAY > 20;
+		count = COUNT(limited);
+		max = MAX(flight_with_delay_no_null.DEPARTURE_DELAY);
+	  min = MIN(flight_with_delay_no_null.DEPARTURE_DELAY);
+    GENERATE FLATTEN(group),count,average_delay as AVG, min as MIN, max as MAX;
+}
+
+--JOIN WITH AIRPORT DATA using REPLICATED JOIN
+joined_data = JOIN summary_data BY ORIGIN_AIRPORT, airports_filtered BY IATA_CODE using 'replicated';
+describe joined_data;
+
+--Sort data by AIRPORT, YEAR, MONTH
+final = ORDER joined_data BY AIRPORT, YEAR, MONTH;
+dump final;
+
+--running script using parameters
+--store final into '/data/${DELAY}_final' using PigStorage(',');
+-- pig -p DELAY=30 flight_delay_exercise3.pig
+--hadoop fs -cat /data/30_final/part*
+
