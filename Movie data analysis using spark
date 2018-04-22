@@ -1,0 +1,30 @@
+%sh
+
+#  Remove old dataset file if already exists in local /tmp directory
+if [ -e /tmp/movie.csv ]
+then
+    rm -f /tmp/movie.csv
+fi
+
+# Download "About-Apache-NiFi" text file
+wget https://s3.amazonaws.com/utdbuan6346-s18/exercise10/movie_metadata.csv -O /tmp/movie.csv
+hadoop fs -put /tmp/movie.csv /tmp/movie.csv
+
+%pyspark
+movies = sc.textFile('/tmp/movie.csv')
+print movies.count()
+
+%pyspark
+header_row = movies.first()
+movies2 = movies.filter(lambda line: line != header_row)
+print movies2.take(5)
+movies3 = movies2.map(lambda x: x.split(","))
+print movies3.take(10)
+
+%pyspark
+movies4 = movies3.filter(lambda x: (x[1] != "") and (x[8] != ""))
+print movies4.count()
+movies5 = movies4.map(lambda x: (x[1], int(x[8])))
+movies6 = movies5.reduceByKey(lambda a, b: a+b)
+movies7 = movies6.sortBy(lambda x: x[1], False)
+print movies7.take(10)
