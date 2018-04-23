@@ -1,0 +1,20 @@
+select o.swid, o.city, o.country, o.state, p.category from omniture o join products p on (o.url = p.url) ;
+
+select o.swid, o.city, o.country, o.state, p.category,u.gender_cd,u.birth_dt from omniture o join products p on (o.url = p.url) left outer join users u on (o.swid = concat('{', u.swid , '}'));
+
+
+create table WEBLOGANALYTICS as
+select to_date(o.ts) logdate, o.url, o.ip, o.city, upper(o.state) state, 
+o.country, p.category, CAST(datediff(from_unixtime(unix_timestamp()), from_unixtime(unix_timestamp(u.birth_dt, 'dd-MMM-yy'))) / 365 as int) current_age, 
+u.gender_cd
+from omniture o join products p
+on (o.url = p.url)
+left outer join users u
+on (o.swid = concat('{', u.swid , '}'));
+
+
+Select count(*) as count, gender_cd, city, category
+from WEBLOGANALYTICS
+where current_age between 19 AND 45 AND state = 'TX'
+GROUP BY gender_cd, city, category;
+
